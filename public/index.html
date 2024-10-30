@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare R2 Video Player</title>
+    <link href="https://vjs.zencdn.net/7.18.1/video-js.css" rel="stylesheet" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .video-container {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cloudflare R2 Video Player</h1>
+    <form id="uploadForm">
+        <input type="file" id="videoFile" name="video" accept="video/*" required>
+        <button type="submit">Upload Video</button>
+    </form>
+
+    <h2>Uploaded Videos</h2>
+    <div id="videoList"></div>
+
+    <div id="modal" style="display:none;">
+        <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto" width="640" height="360">
+            <source src="" type="video/mp4">
+        </video>
+        <button onclick="closeModal()">Close</button>
+    </div>
+
+    <script src="https://vjs.zencdn.net/7.18.1/video.min.js"></script>
+    <script>
+        const form = document.getElementById('uploadForm');
+        const videoList = document.getElementById('videoList');
+        const modal = document.getElementById('modal');
+        const videoPlayer = videojs('videoPlayer');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (response.ok) {
+                alert('Upload successful!');
+                listVideos();
+            } else {
+                alert('Upload failed.');
+            }
+        });
+
+        async function listVideos() {
+            const response = await fetch('/videos');
+            const videos = await response.json();
+            videoList.innerHTML = '';
+            videos.forEach(video => {
+                const videoItem = document.createElement('button');
+                videoItem.textContent = video.Key;
+                videoItem.style.cursor = 'pointer';
+                videoItem.style.padding = '0.5em 1em';
+                videoItem.style.marginBottom = '1em';
+                videoItem.style.backgroundColor = '#3636b1';
+                videoItem.style.color = 'white';
+                videoItem.style.borderRadius = '5px';
+                videoItem.style.border = 'none';
+                videoItem.style.fontSize = '1em';
+
+                videoItem.addEventListener('click', () => playVideo(video.Key));
+                videoList.appendChild(videoItem);
+            });
+        }
+
+        async function playVideo(key) {
+            try {
+                const response = await fetch(`/video-url/${key}`);
+                if (!response.ok) throw new Error('Failed to fetch video URL');
+                
+                const { url } = await response.json();
+                videoPlayer.src([{ src: url, type: 'video/mp4' }]);
+                modal.style.display = 'block';
+                videoPlayer.play();
+            } catch (error) {
+                console.error('Error playing video:', error);
+            }
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            videoPlayer.pause();
+        }
+
+        listVideos();
+    </script>
+</body>
+</html>
